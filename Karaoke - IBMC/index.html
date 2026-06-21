@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0f0f1a">
+  <meta name="description" content="KaraokêLive — plataforma de karaokê compartilhada, com banco de dados na nuvem">
+  <title>Karaokê - IBMC</title>
+  <link rel="manifest" href="#" id="manifest-link">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body data-theme="dark">
+
+<!-- =====================================================
+     OVERLAY MOBILE (fecha a sidebar ao clicar fora)
+===================================================== -->
+<div id="sidebar-overlay" onclick="closeSidebar()"></div>
+
+<!-- =====================================================
+     APP SHELL
+===================================================== -->
+<div id="app">
+
+  <!-- ══════════════════════════════════════════════
+       SIDEBAR
+  ══════════════════════════════════════════════ -->
+  <nav id="sidebar">
+
+    <!-- Logo -->
+    <div class="sidebar-logo">
+      <div class="logo-icon">🎤</div>
+      <div class="logo-text">Karaokê<span> - IBMC</span></div>
+    </div>
+
+    <!-- Navegação principal -->
+    <div class="sidebar-section">Menu</div>
+
+    <div class="nav-item active" data-page="library" onclick="navigate('library')">
+      <span class="icon">🎵</span> Biblioteca
+      <span class="nav-badge" id="badge-count">0</span>
+    </div>
+
+    <div class="nav-item" data-page="playlists" onclick="navigate('playlists')">
+      <span class="icon">📋</span> Playlists
+    </div>
+
+    <div class="nav-item" data-page="favorites" onclick="navigate('favorites')">
+      <span class="icon">❤️</span> Favoritas
+    </div>
+
+    <div class="nav-item" data-page="history" onclick="navigate('history')">
+      <span class="icon">🕓</span> Histórico
+    </div>
+
+    <div class="nav-item" data-page="stats" onclick="navigate('stats')">
+      <span class="icon">📊</span> Estatísticas
+    </div>
+
+    <div class="nav-item" id="nav-importexport" data-page="importexport" onclick="navigate('importexport')" style="display:none">
+      <span class="icon">📦</span> Exportar / Importar
+    </div>
+
+    <!-- Playlists rápidas -->
+    <div class="sidebar-section" style="margin-top:8px">Playlists</div>
+    <div id="sidebar-playlists"></div>
+    <div class="nav-item" id="btn-new-playlist-nav" style="color:var(--accent);font-size:13px;display:none" onclick="openPlaylistModal()">
+      <span class="icon">＋</span> Nova playlist
+    </div>
+
+    <!-- Rodapé da sidebar -->
+    <div class="sidebar-footer">
+      <button class="theme-toggle" onclick="toggleTheme()">
+        <span id="theme-icon">☀️</span>
+        <span id="theme-label">Tema claro</span>
+      </button>
+      <button class="theme-toggle" onclick="onAdminButtonClick()" style="margin-top:8px">
+        <span id="admin-icon">🔒</span>
+        <span id="admin-label">Entrar como admin</span>
+      </button>
+    </div>
+
+  </nav><!-- /sidebar -->
+
+
+  <!-- ══════════════════════════════════════════════
+       ÁREA PRINCIPAL
+  ══════════════════════════════════════════════ -->
+  <div id="main">
+
+    <!-- Topbar -->
+    <div id="topbar">
+      <button class="hamburger" onclick="toggleSidebar()">☰</button>
+
+      <div id="search-box">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="search-input"
+               placeholder="Buscar músicas, artistas…"
+               oninput="onSearch(this.value)">
+      </div>
+
+      <div class="topbar-actions">
+        <button class="btn btn-primary btn-sm" id="btn-add-music" style="display:none" onclick="openAddModal()">＋ Adicionar música</button>
+      </div>
+    </div>
+
+    <!-- Conteúdo dinâmico (renderizado por JS) -->
+    <div id="content"></div>
+
+  </div><!-- /main -->
+
+</div><!-- /app -->
+
+
+<!-- =====================================================
+     TOAST CONTAINER
+===================================================== -->
+<div id="toast-container"></div>
+
+
+<!-- =====================================================
+     TELA DE KARAOKÊ (fullscreen overlay)
+===================================================== -->
+<div id="karaoke-view">
+
+  <!-- Cabeçalho do karaokê -->
+  <div class="karaoke-topbar">
+    <button class="btn btn-secondary btn-sm" onclick="closeKaraoke()">← Voltar</button>
+    <div class="song-info">
+      <h2 id="kara-title">–</h2>
+      <p  id="kara-artist">–</p>
+    </div>
+    <div class="karaoke-controls">
+      <button class="btn btn-ghost btn-sm"      onclick="togglePresentationMode()" title="Modo Apresentação (P)">📺 Apres.</button>
+      <button class="btn btn-ghost btn-sm"      onclick="toggleFullscreen()"       title="Tela cheia (F)">⛶ Full</button>
+      <button class="btn btn-ghost btn-sm btn-icon" id="kara-fav-btn" onclick="favCurrentSong()" title="Favoritar">🤍</button>
+      <button class="btn btn-ghost btn-sm btn-icon" onclick="openEditFromKaraoke()"              title="Editar letra">✏️</button>
+    </div>
+  </div>
+
+  <!-- Corpo do karaokê -->
+  <div class="karaoke-body">
+
+    <!-- Coluna de vídeo / áudio -->
+    <div class="karaoke-media" id="kara-media">
+      <!-- Fallback quando não há vídeo -->
+      <div class="karaoke-no-video" id="kara-no-video">
+        <img id="kara-thumb-big" class="thumb-big" src="" alt="" style="display:none">
+        <span style="font-size:48px">🎤</span>
+        <p>Nenhum vídeo configurado</p>
+      </div>
+      <!-- Vídeo / player de áudio injetado pelo JS -->
+      <div id="kara-video-wrap" style="flex:1;display:none;flex-direction:column"></div>
+    </div>
+
+    <!-- Coluna da letra / teleprompter -->
+    <div class="karaoke-lyrics-col">
+
+      <!-- Barra de ferramentas do teleprompter -->
+      <div class="lyrics-toolbar">
+        <span class="lyrics-label">Teleprompter</span>
+        <button class="btn btn-secondary btn-sm btn-icon" id="tp-play-btn"
+                onclick="tpToggle()" title="Play / Pause (Espaço)">▶</button>
+        <button class="btn btn-ghost btn-sm btn-icon" onclick="tpRestart()"  title="Reiniciar (R)">⏮</button>
+        <button class="btn btn-ghost btn-sm btn-icon" onclick="tpSlower()"   title="Mais lento (-)">−</button>
+        <span class="tp-speed" id="tp-speed-label">1×</span>
+        <button class="btn btn-ghost btn-sm btn-icon" onclick="tpFaster()"   title="Mais rápido (+)">+</button>
+
+        <span style="width:1px;height:20px;background:var(--border);margin:0 4px"></span>
+
+        <span class="lyrics-label">Fonte</span>
+        <button class="btn btn-ghost btn-sm btn-icon" onclick="changeFontSize(-1)"    title="Diminuir fonte">A−</button>
+        <button class="btn btn-ghost btn-sm btn-icon" onclick="changeFontSize(1)"     title="Aumentar fonte">A+</button>
+        <button class="btn btn-ghost btn-sm btn-icon" onclick="changeLineHeight(-0.2)" title="Menos espaço">↕−</button>
+        <button class="btn btn-ghost btn-sm btn-icon" onclick="changeLineHeight(0.2)"  title="Mais espaço">↕+</button>
+      </div>
+
+      <!-- Área da letra -->
+      <div id="lyrics-scroll">
+        <pre id="lyrics-text">Selecione uma música para começar.</pre>
+      </div>
+
+      <!-- Barra de progresso do teleprompter -->
+      <div class="tp-progress-wrap">
+        <div class="tp-progress-bar" id="tp-progress"></div>
+      </div>
+
+    </div><!-- /karaoke-lyrics-col -->
+
+  </div><!-- /karaoke-body -->
+
+  <!-- Player de audio persistente: sobrevive ao modo apresentacao -->
+  <div id="kara-persistent-audio" style="display:none;position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:9999;background:rgba(0,0,0,0.82);backdrop-filter:blur(10px);border-radius:14px;padding:10px 14px;align-items:center;gap:10px;box-shadow:0 4px 24px rgba(0,0,0,0.6);min-width:300px;max-width:92%"></div>
+
+</div><!-- /karaoke-view -->
+
+
+<!-- =====================================================
+     MODAL — ADICIONAR / EDITAR MÚSICA
+===================================================== -->
+<div class="modal-overlay" id="modal-music"
+     onclick="closeModalOutside(event,'modal-music')">
+  <div class="modal">
+
+    <div class="modal-header">
+      <div class="modal-title" id="modal-music-title">Adicionar música</div>
+      <button class="modal-close" onclick="closeModal('modal-music')">×</button>
+    </div>
+
+    <div class="modal-body">
+      <!-- ID oculto para edição -->
+      <input type="hidden" id="edit-id">
+
+      <!-- ── Thumbnail ── -->
+      <div class="form-group">
+        <label class="form-label">Capa / Thumbnail</label>
+        <div class="thumb-preview" id="thumb-drop"
+             onclick="document.getElementById('thumb-file').click()"
+             ondrop="handleThumbDrop(event)"
+             ondragover="event.preventDefault()">
+          <img id="thumb-preview-img" src="" alt="" style="display:none">
+          <div class="thumb-preview-text" id="thumb-preview-text">
+            <span>🖼️</span>
+            Clique ou arraste uma imagem
+          </div>
+        </div>
+        <input type="file" id="thumb-file" accept="image/*"
+               style="display:none" onchange="handleThumbFile(event)">
+        <div class="form-hint">Ou cole uma URL:</div>
+        <input type="text" class="form-control" id="thumb-url"
+               placeholder="https://…" oninput="updateThumbFromUrl(this.value)"
+               style="margin-top:8px">
+      </div>
+
+      <!-- ── Nome e Artista ── -->
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Nome da música *</label>
+          <input type="text" class="form-control" id="edit-title"
+                 placeholder="Ex: Evidências">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Artista *</label>
+          <input type="text" class="form-control" id="edit-artist"
+                 placeholder="Ex: Chitãozinho & Xororó">
+        </div>
+      </div>
+
+      <!-- ── Categoria e Favorita ── -->
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Categoria / Gênero</label>
+          <input type="text" class="form-control" id="edit-category"
+                 list="category-list" placeholder="Ex: Sertanejo">
+          <datalist id="category-list"></datalist>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Favorita?</label>
+          <select class="form-control" id="edit-fav">
+            <option value="false">Não</option>
+            <option value="true">Sim ❤️</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- ── Vídeo ── -->
+      <div class="form-group">
+        <label class="form-label">🎬 Link do vídeo playback</label>
+        <input type="text" class="form-control" id="edit-video"
+               placeholder="https://www.youtube.com/watch?v=… ou URL de vídeo MP4">
+        <div class="form-hint">Cole o link do YouTube ou de um vídeo MP4. Será incorporado na tela de karaokê.</div>
+      </div>
+
+      <!-- ── MP3 (Supabase Storage) ── -->
+      <div class="form-group">
+        <label class="form-label">🎵 Arquivo MP3 (salvo na nuvem via Supabase Storage)</label>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <input type="file" id="mp3-file" accept="audio/*"
+                 style="display:none" onchange="handleMp3File(event)">
+          <button class="btn btn-secondary btn-sm"
+                  onclick="document.getElementById('mp3-file').click()">
+            📂 Escolher MP3
+          </button>
+          <button class="btn btn-danger btn-sm" id="btn-remove-mp3"
+                  onclick="removeMp3FromSong()" style="display:none">
+            🗑 Remover MP3
+          </button>
+        </div>
+        <div style="margin-top:8px">
+          <span id="mp3-filename" style="font-size:13px;color:var(--text-secondary)">Nenhum arquivo</span><br>
+          <span id="mp3-status"   style="font-size:12px;color:var(--text-muted)"></span>
+        </div>
+        <div class="form-hint">
+          O MP3 é enviado para o Supabase Storage ao clicar em Salvar — fica disponível para qualquer pessoa que acessar o site, em qualquer dispositivo.
+        </div>
+      </div>
+
+      <!-- ── Letra ── -->
+      <div class="form-group">
+        <label class="form-label">📝 Letra completa</label>
+        <textarea class="form-control" id="edit-lyrics"
+                  placeholder="Cole aqui a letra completa da música…"
+                  style="min-height:200px"></textarea>
+      </div>
+    </div><!-- /modal-body -->
+
+    <div class="modal-footer">
+      <button class="btn btn-ghost"              onclick="closeModal('modal-music')">Cancelar</button>
+      <button class="btn btn-secondary btn-sm"   onclick="duplicateSong()" id="btn-duplicate" style="display:none">Duplicar</button>
+      <button class="btn btn-danger btn-sm"      onclick="deleteSong()"    id="btn-delete"    style="display:none">🗑 Excluir</button>
+      <button class="btn btn-primary"            onclick="saveSong()">💾 Salvar</button>
+    </div>
+
+  </div>
+</div><!-- /modal-music -->
+
+
+<!-- =====================================================
+     MODAL — CRIAR / RENOMEAR PLAYLIST
+===================================================== -->
+<div class="modal-overlay" id="modal-playlist"
+     onclick="closeModalOutside(event,'modal-playlist')">
+  <div class="modal" style="max-width:420px">
+
+    <div class="modal-header">
+      <div class="modal-title" id="modal-playlist-title">Nova Playlist</div>
+      <button class="modal-close" onclick="closeModal('modal-playlist')">×</button>
+    </div>
+
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Nome da playlist</label>
+        <input type="text" class="form-control" id="playlist-name-input"
+               placeholder="Ex: Forró dos Anos 90">
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-ghost"   onclick="closeModal('modal-playlist')">Cancelar</button>
+      <button class="btn btn-primary" onclick="savePlaylist()">Salvar</button>
+    </div>
+
+  </div>
+</div><!-- /modal-playlist -->
+
+
+<!-- =====================================================
+     MODAL — ADICIONAR MÚSICA À PLAYLIST
+===================================================== -->
+<div class="modal-overlay" id="modal-add-to-pl"
+     onclick="closeModalOutside(event,'modal-add-to-pl')">
+  <div class="modal" style="max-width:380px">
+
+    <div class="modal-header">
+      <div class="modal-title">Adicionar à Playlist</div>
+      <button class="modal-close" onclick="closeModal('modal-add-to-pl')">×</button>
+    </div>
+
+    <div class="modal-body" id="add-to-pl-body"></div>
+
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-add-to-pl')">Fechar</button>
+    </div>
+
+  </div>
+</div><!-- /modal-add-to-pl -->
+
+
+<!-- =====================================================
+     MODAL — LOGIN DE ADMIN
+===================================================== -->
+<div class="modal-overlay" id="modal-login"
+     onclick="closeModalOutside(event,'modal-login')">
+  <div class="modal" style="max-width:380px">
+
+    <div class="modal-header">
+      <div class="modal-title">Entrar como admin</div>
+      <button class="modal-close" onclick="closeModal('modal-login')">×</button>
+    </div>
+
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">E-mail</label>
+        <input type="email" class="form-control" id="login-email" placeholder="seu@email.com">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Senha</label>
+        <input type="password" class="form-control" id="login-password"
+               placeholder="••••••••" onkeydown="if(event.key==='Enter')doAdminLogin()">
+      </div>
+      <div class="form-hint">
+        Use o e-mail e a senha que você criou em Authentication → Users no painel do Supabase.
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-ghost"   onclick="closeModal('modal-login')">Cancelar</button>
+      <button class="btn btn-primary" onclick="doAdminLogin()">Entrar</button>
+    </div>
+
+  </div>
+</div><!-- /modal-login -->
+
+
+<!-- =====================================================
+     SCRIPTS
+===================================================== -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+
+</body>
+</html>
